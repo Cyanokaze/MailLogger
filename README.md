@@ -30,3 +30,36 @@ MailLogger：
 1.2.9 修复空表错误
 1.3.0 新增日历开关
 1.3.1 继续修复空表错误
+1.3.2 修复错误
+1.3.3 修复收件金额错误，优化收件同类物品存储逻辑，现在同类物品会被合并
+1.3.4 修复交易数据清理工具的一个bug，增加寄件同类物品合并逻辑
+1.3.5 添加对TitanPanel的支持
+1.3.6 添加对正式服TitanPanel的支持
+1.3.7 修复一个包满导致的错误
+1.3.8 优化代码和判断，降低占用，修复LDB对象错误
+1.3.9 修改统计重复物品方法，避免包满回退错误
+1.3.10 修复一个罕见bug
+1.4.0 解决未安装Titan Panel时小地图按钮问题
+1.4.1 不再记录竞技场和战场中的交易内容，也不会密语
+1.4.2(ERA) 尝试解决60怀旧跨服交易密语名称不正确的问题
+1.4.3 解决跨服交易通报目标不正确的问题
+1.4.4 解决部分翻译错误
+1.4.6 Fix nil var error.
+1.4.7 Fix misspelling.
+1.4.8 Remove prevent trade function.
+1.4.9 Update TOC, and Remove 'Prevent Trade' GUI and Checkbox. 
+1.4.9new Update TOC
+1.5.1 new toc system, and fix instance_chat error.
+1.5.2 fix global variables error (maybe).
+1.5.4 Support CATA version.
+1.5.6 Fix checkbox bugs, and re-build setting interface.
+2.0.1 Fix setting error, Added two-step authentication for "Delete data".
+2.0.4 Optimized the interface, the confirmation buttons 'Y' and 'N' will disappear automatically after 5 seconds.
+2.0.5 Fix the error in the addon that deletes records that include both giving and receiving items.
+2.0.6 Mails received using Shift are now recorded as expected. Characters with the same name on different servers will no longer be confused with each other.
+2.0.7 Fix the issue where MinimapIcon can't save its position when using the LDBIcon library, and add functionality to sort by both character and date.
+2.0.8 Fix line command errors.
+2.0.9 I forgot what I did
+2.1.1 Fix a old 'no records' error.
+2.1.2 Fix data form error in function 'find'.
+2.1.3 Upgrade efficiency.
