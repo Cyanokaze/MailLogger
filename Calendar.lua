@@ -5,68 +5,92 @@ local _, Addon = ...
 local Calendar = Addon.Calendar
 local TradeLog = Addon.TradeLog
 local L = Addon.L
-local AvailableDate = Addon.AvailableDate
+local AvailableDate = {}
 
--- 統計可用日期
-function Addon:GetAvailableDate()
-    AvailableDate = {}
-    if #TradeLog > 0 and TradeLog[#TradeLog].Date then
-        for i = 1, #TradeLog do
-            local year, month, day = strsplit("-", TradeLog[i].Date)
-            if not AvailableDate[year] then
-                AvailableDate[year] = {}
-            end
-            if not AvailableDate[year][month] then
-                AvailableDate[year][month] = {}
-            end
-            if not AvailableDate[year][month][day] then
-                AvailableDate[year][month][day] = true
-            end
+-- 辅助函数：解析日期字符串为年、月、日
+local function ParseDate(dateStr)
+    local year, month, day = strsplit("-", dateStr or "")
+    return year, month, day
+end
+
+-- 辅助函数：获取指定月份的最后一天
+local function GetEndDayOfMonth(year, month)
+    if month == 2 then
+        if (year % 4 == 0 and year % 100 ~= 0) or year % 400 == 0 then
+            return 29 -- 闰年二月有29天
+        else
+            return 28 -- 平年二月有28天
         end
-        Addon.SetYear, Addon.SetMonth, Addon.SetDay = strsplit("-", TradeLog[#TradeLog].Date)
+    elseif month == 4 or month == 6 or month == 9 or month == 11 then
+        return 30 -- 四月、六月、九月和十一月有30天
     else
-        Addon.SetYear, Addon.SetMonth, Addon.SetDay = strsplit("-", date("%Y-%m-%d"))
+        return 31 -- 其他月份有31天
     end
 end
 
--- 刷新日期按鈕
-function Addon:RefreshCalendar()
-    local CurrentMonth = {}
-    CurrentMonth.year, CurrentMonth.month, CurrentMonth.day = Addon.SetYear, Addon.SetMonth, "01"
-    local SkipDays = date("%w", time(CurrentMonth))
-    local BigMonth = {
-        ["01"] = true,
-        ["03"] = true,
-        ["05"] = true,
-        ["07"] = true,
-        ["08"] = true,
-        ["10"] = true,
-        ["12"] = true,
-    }
-    local EndDay = 0
-    if Addon.SetMonth == "02" then
-        if math.fmod(Addon.SetYear, 4) == 0 and math.fmod(Addon.SetYear, 100) ~= 0 or math.fmod(Addon.SetYear, 400) == 0  then
-            EndDay = 29
-        else
-            EndDay = 28
+-- 获取可用日期
+function Addon:GetAvailableDate(IsFirst)
+    AvailableDate = {}
+    local filterName = Addon.Config.OnlyThisCharacter and Addon.Config.SelectName or nil
+    
+    if #TradeLog > 0 then
+        local lastValidYear, lastValidMonth, lastValidDay
+        for i = 1, #TradeLog do
+            local entry = TradeLog[i]
+            -- 檢查是否符合過濾條件
+            if not filterName or entry.PlayerName == filterName then
+                local year, month, day = ParseDate(entry.Date)
+                if year and month and day then
+                    if not AvailableDate[year] then
+                        AvailableDate[year] = {}
+                    end
+                    if not AvailableDate[year][month] then
+                        AvailableDate[year][month] = {}
+                    end
+                    AvailableDate[year][month][day] = true
+                    lastValidYear, lastValidMonth, lastValidDay = year, month, day
+                end
+            end
+        end
+        
+        if IsFirst then
+            if lastValidYear then
+                Addon.SetYear, Addon.SetMonth, Addon.SetDay = lastValidYear, lastValidMonth, lastValidDay
+            else
+                Addon.SetYear, Addon.SetMonth, Addon.SetDay = ParseDate(date("%Y-%m-%d"))
+            end
         end
     else
-        EndDay = BigMonth[Addon.SetMonth] and 31 or 30
+        if IsFirst then
+            Addon.SetYear, Addon.SetMonth, Addon.SetDay = ParseDate(date("%Y-%m-%d"))
+        end
     end
+end
+
+--- 刷新日期按钮
+function Addon:RefreshCalendar()
+    local CurrentMonth = { year = Addon.SetYear, month = Addon.SetMonth, day = "01" }
+    local SkipDays = date("%w", time(CurrentMonth))
+    local EndDay = GetEndDayOfMonth(tonumber(Addon.SetYear), tonumber(Addon.SetMonth))
+
     for i = 1, 42 do
         Calendar.Days[i]:SetText("")
         Calendar.Days[i]:Disable()
     end
+
     for i = 1, EndDay do
-        Calendar.Days[i+SkipDays]:SetText(tostring(i))
+        Calendar.Days[i + SkipDays]:SetText(i)
+
         if AvailableDate[Addon.SetYear] and AvailableDate[Addon.SetYear][Addon.SetMonth] and AvailableDate[Addon.SetYear][Addon.SetMonth][string.format("%02d",i)] then
-            Calendar.Days[i+SkipDays]:Enable()
-            Calendar.Days[i+SkipDays]:SetScript("OnClick", function(self)
-                Addon:PrintTradeLog("ALL", nil, Addon.SetYear.."-"..Addon.SetMonth.."-"..string.format("%02d",i))
+            Calendar.Days[i + SkipDays]:Enable()
+            Calendar.Days[i + SkipDays]:SetScript("OnClick", function()
+                local SelectedDate = Addon.SetYear.."-"..Addon.SetMonth.."-"..string.format("%02d", i)
+                Addon:PrintTradeLog(Addon.Config.Mode, Addon.Config.OnlyThisCharacter and Addon.Config.SelectName or nil, SelectedDate)
             end)
         end
     end
 end
+
 
 -- 創建日期按鈕
 local function CreateDateButton(index)
@@ -129,39 +153,34 @@ function Calendar:Initialize()
         t:SetPoint("TOP", f.texture, 0, -14)
         self.title = t
     end
-    Addon:GetAvailableDate()
+    Addon:GetAvailableDate(true)
     do -- 年份下拉菜單
         local d = CreateFrame("Frame", nil, f, "UIDropDownMenuTemplate")
         local t = f:CreateFontString(nil, "ARTWORK", "GameFontNormalSmallLeft")
         t:SetText(L["Year"])
         t:SetPoint("LEFT", d, "LEFT", -25, 2)
 
-        local value = {}
-        local text = {}
-        local index = 1
-
-        for k in pairs(AvailableDate) do
-            table.insert(value, index)
-            table.insert(text, k)
-            index = index + 1
-        end
-
         UIDropDownMenu_Initialize(d, function(self)
+            local years = {}
+            for k in pairs(AvailableDate) do
+                table.insert(years, k)
+            end
+            table.sort(years, function(a, b) return tonumber(a) > tonumber(b) end) -- 降序排列年份
+
             local info = UIDropDownMenu_CreateInfo()
-            d.text = text
-            for i = 1, #text do
-                info.text = text[i]
-                info.value = value[i]
+            for i = 1, #years do
+                info.text = years[i]
+                info.value = years[i]
                 info.func = function(v)
-                    Addon.SetYear = text[v.value]
-                    UIDropDownMenu_SetText(d, text[v.value])
+                    Addon.SetYear = v.value
+                    UIDropDownMenu_SetText(d, v.value)
                     CloseDropDownMenus()
+                    Addon:RefreshCalendar()
                 end
-                info.arg1, info.arg2 = d, value[i]
+                info.checked = (Addon.SetYear == years[i])
                 UIDropDownMenu_AddButton(info)
             end
         end)
-        d.SetValue = function(v) Addon.SetYear = text[v] end
         d:SetScript("OnShow", function(self)
             UIDropDownMenu_SetText(self, Addon.SetYear)
         end)
@@ -169,6 +188,7 @@ function Calendar:Initialize()
         UIDropDownMenu_SetWidth(d, 70)
         UIDropDownMenu_SetButtonWidth(d, 70)
         d:SetPoint("TOPLEFT", 50, -30)
+        self.YearDropMenu = d
     end
     do -- 月份下拉菜單
         local d = CreateFrame("Frame", nil, f, "UIDropDownMenuTemplate")
@@ -205,6 +225,7 @@ function Calendar:Initialize()
         UIDropDownMenu_SetWidth(d, 55)
         UIDropDownMenu_SetButtonWidth(d, 55)
         d:SetPoint("TOPLEFT", 200, -30)
+        self.MonthDropMenu = d
     end
     do -- 创建关闭按钮
         local cls = CreateFrame("Button", nil, f, "GameMenuButtonTemplate")
@@ -215,6 +236,26 @@ function Calendar:Initialize()
         cls:SetScript("OnClick", function()
             f:Hide()
             Addon.Output.background:Hide()
+        end)
+    end
+    do -- 创建全部按钮
+        local all = CreateFrame("Button", nil, f, "GameMenuButtonTemplate")
+        all:SetWidth(80)
+        all:SetHeight(30)
+        all:SetPoint("BOTTOMLEFT", 20, 15)
+        all:SetText(L["All Dates"])
+        all:SetScript("OnClick", function()
+            Addon.Output.dropdowntitle:Show()
+			Addon.Output.dropdownlist:Show()
+			Addon.Output.dropdownbutton:Show()
+            if Addon.Config.OnlyThisCharacter then
+                Addon:PrintTradeLog(Addon.Config.Mode, Addon.Config.SelectName)
+            else
+                Addon:PrintTradeLog(Addon.Config.Mode, nil)
+            end
+			Addon:GetAvailableDate(false)
+			Addon.Calendar.background:Show()
+			Addon:RefreshCalendar()
         end)
     end
     do -- 初始化日期按鈕
