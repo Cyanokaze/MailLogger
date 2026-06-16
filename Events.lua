@@ -758,6 +758,24 @@ do -- Hook AutoLootMailItem, 獲取快速收取的郵件信息
 		if not Config.EnableML then
 			return
 		end
+		-- 記錄郵件中的金錢
+		local _, _, Sender, _, Money = GetInboxHeaderInfo(MailIndex)
+		if Money and Money > 0 then
+			if not TradeLog[#TradeLog] or TradeLog[#TradeLog].Result ~= "received" or (TradeLog[#TradeLog].TargetName and TradeLog[#TradeLog].TargetName ~= Sender) or Addon:CompareTime(TradeLog[#TradeLog].Time, 5) then
+				t_insert(TradeLog, Addon:NewMail())
+			end
+			local entry = TradeLog[#TradeLog]
+			if not entry.TargetName or not entry.Result then
+				entry["TargetName"] = Sender .. "-" .. GetRealmName()
+				entry["Reason"] = MailIndex
+				entry["Result"] = "received"
+				entry["Location"] = GetRealZoneText()
+			end
+			entry["ReceiveMoney"] = entry["ReceiveMoney"] + Money
+			entry["Date"] = date("%Y-%m-%d")
+			entry["Time"] = date("%H:%M:%S")
+		end
+		-- 記錄郵件中的物品
 		for i = 1, 12 do
 			if GetInboxItem(MailIndex, i) then
 				RecordMailItemInfo(MailIndex, i)
